@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Callable
 
 from . import agents
-from .analysis import WINDOWS, analyze
+from .analysis import WINDOWS, analyze, diverse_top
 from .llm import LLM
 from .providers import DataProvider, ProviderError
 from .storage import Store
@@ -24,6 +24,7 @@ def run_analysis(
     llm: LLM,
     store: Store,
     max_hashtags: int,
+    about: str = "",
     progress: Callable[[str], None] = lambda _msg: None,
     now: datetime | None = None,
 ) -> dict:
@@ -54,8 +55,15 @@ def run_analysis(
     progress(f"Analyzing {len(posts)} posts")
     stats = analyze(posts, now, tz_name)
 
-    progress("Drafting your post")
-    draft = agents.draft_post(llm, topic, stats)
+    progress("Finding patterns shared across accounts")
+    primary_since = now - timedelta(days=stats["primary_window_days"])
+    sample = diverse_top([p for p in posts if p.posted_at >= primary_since], limit=30, per_account=2)
+    themes = agents.find_themes(llm, topic, sample)
+
+    progress("Writing post ideas")
+    ideas = agents.write_ideas(llm, topic, stats, themes, about)
+    if not ideas["ideas"]:
+        raise AnalysisError("The AI couldn't come up with usable ideas this time. Please try again.")
 
     report = {
         "topic": topic,
@@ -63,7 +71,10 @@ def run_analysis(
         "data_source": provider.name,
         "plan": plan,
         "stats": stats,
-        "draft": draft,
+        "about": about,
+        "themes": themes,
+        "ideas": ideas["ideas"],
+        "posting_notes": ideas["posting_notes"],
         "warnings": warnings,
     }
     store.save_report(report)

@@ -17,6 +17,8 @@ WINDOWS = (7, 15, 30, 60)
 # Window used for timing + goals: the first with enough posts, in this order.
 PRIMARY_PREFERENCE = (30, 60, 15, 7)
 MIN_PRIMARY_POSTS = 20
+# A day/hour/format needs this many posts before it can be called "best".
+MIN_BUCKET_POSTS = 5
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
@@ -44,12 +46,30 @@ def _ranked_buckets(posts: list[Post], key, label) -> list[dict]:
     groups: dict = defaultdict(list)
     for p in posts:
         groups[key(p)].append(p.score)
-    min_count = max(2, math.ceil(len(posts) * 0.02))
+    min_count = max(MIN_BUCKET_POSTS, math.ceil(len(posts) * 0.04))
     rows = [
         {**label(k), "count": len(v), "median_score": round(median(v))}
         for k, v in groups.items() if len(v) >= min_count
     ]
     return sorted(rows, key=lambda r: r["median_score"], reverse=True)
+
+
+def account(p: Post) -> str:
+    """Who made the post; posts with unknown owners count as separate accounts."""
+    return p.owner or f"post:{p.id}"
+
+
+def diverse_top(posts: list[Post], limit: int, per_account: int = 1) -> list[Post]:
+    """Best posts by score, capped per account so one viral creator can't dominate."""
+    seen: Counter = Counter()
+    picked = []
+    for p in sorted(posts, key=lambda p: p.score, reverse=True):
+        if seen[account(p)] < per_account:
+            seen[account(p)] += 1
+            picked.append(p)
+            if len(picked) == limit:
+                break
+    return picked
 
 
 def _caption_bucket(p: Post) -> str:
@@ -61,9 +81,9 @@ def summarize(posts: list[Post], tz: ZoneInfo) -> dict:
     if not posts:
         return {"post_count": 0}
     local = lambda p: p.posted_at.astimezone(tz)  # noqa: E731
-    ranked = sorted(posts, key=lambda p: p.score, reverse=True)
-    top_quartile = ranked[: max(1, len(ranked) // 4)]
-    tag_counts = Counter(t for p in top_quartile for t in p.hashtags)
+    top_quartile = diverse_top(posts, max(1, len(posts) // 4), per_account=2)
+    # Count accounts, not posts, so one account repeating its own tags doesn't rank them.
+    tag_counts = Counter(t for _acct, t in {(account(p), t) for p in top_quartile for t in p.hashtags})
     by_format = _ranked_buckets(posts, lambda p: p.media_type, lambda k: {"format": k})
     for row in by_format:
         row["share"] = round(row["count"] / len(posts), 2)
@@ -79,7 +99,7 @@ def summarize(posts: list[Post], tz: ZoneInfo) -> dict:
             posts, lambda p: local(p).weekday(), lambda k: {"weekday": WEEKDAYS[k]}
         ),
         "by_caption_length": _ranked_buckets(posts, _caption_bucket, lambda k: {"length": k}),
-        "top_hashtags": [{"tag": t, "count": c} for t, c in tag_counts.most_common(15)],
+        "top_hashtags": [{"tag": t, "accounts": c} for t, c in tag_counts.most_common(15)],
         "top_posts": [
             {
                 "url": p.url,
@@ -91,7 +111,7 @@ def summarize(posts: list[Post], tz: ZoneInfo) -> dict:
                 "posted_at": local(p).isoformat(),
                 "caption": p.caption[:280],
             }
-            for p in ranked[:5]
+            for p in diverse_top(posts, 5)
         ],
     }
 

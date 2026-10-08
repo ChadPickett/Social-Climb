@@ -7,8 +7,12 @@ Pick a topic, hit **Analyze**, and get:
 3. **Analysis.** Code (not the AI) computes the stats for the 7 / 15 / 30 / 60-day windows: typical vs. top
    likes, comments and views, best format, best weekdays and hours in *your* time zone, caption length,
    the hashtags top performers use, and whether the topic is heating up or cooling down.
-4. **Draft post.** A second AI agent writes an original post (hook, caption, hashtags, slide/scene
-   outline, visual direction, CTA) based on those stats.
+4. **Patterns.** An AI agent looks at a sample of top posts (at most 2 per account) and lists the
+   themes and hook styles that work. Code then drops any theme that only one account used, so a
+   single viral creator can't steer the result.
+   **Ideas.** A second AI agent writes 3 different, original post ideas built on those themes and on
+   what you tell it about yourself and the photos/videos you have. It never sees other people's full
+   captions, and code rejects any "Part 2"-style sequel of someone else's series.
 5. **When to post and what to aim for.** Your next best posting slot, plus a target (top 25%) and a stretch
    goal (top 10%) for each metric.
 
@@ -90,7 +94,7 @@ so a cheaper model can't make them up.
 backend/
   main.py          HTTP API + serves the web app
   pipeline.py      plan → collect → analyze → draft, run as background jobs
-  agents.py        the two AI agents (search planner, post drafter)
+  agents.py        AI agents (search planner, pattern analyst, idea writer) + their guard rails
   analysis.py      all statistics: windows, timing, goals, momentum
   llm.py           OpenAI-compatible client (+ offline mock)
   storage.py       SQLite cache of posts and reports

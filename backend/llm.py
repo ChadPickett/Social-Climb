@@ -85,16 +85,37 @@ class MockLLM(LLM):
                 "search_terms": [topic, f"{topic} tips"],
                 "rationale": "Mock planner: derived tags from the topic words.",
             }
+        if task == "themes":
+            n = len(payload["posts"])
+            return {
+                "themes": [
+                    {"name": "Behind the scenes", "description": "Day-to-day reality of the work.",
+                     "post_numbers": list(range(1, min(n, 4) + 1))},
+                    {"name": "One-off", "description": "Only one post shows this.", "post_numbers": [1]},
+                ],
+                "hook_styles": ["Question to the audience"],
+                "avoid": ["Generic captions"],
+            }
         stats = payload["stats"]
-        return {
-            "format": stats.get("best_format") or "carousel",
-            "hook": f"3 things nobody tells you about {topic}",
+        tags = [h["tag"] for h in payload.get("top_hashtags", [])][:10]
+        idea = lambda title, fmt: {  # noqa: E731
+            "title": title,
+            "format": fmt,
+            "based_on": "Mock idea built on the top themes and formats.",
+            "what_you_need": "Mock: 5 photos from your own work.",
+            "hook": f"{title}: what nobody tells you about {topic}",
             "caption": f"Here's what most people get wrong about {topic}... (mock draft)",
-            "hashtags": [h["tag"] for h in payload.get("top_hashtags", [])][:10],
-            "content_outline": ["Hook slide", "Point 1", "Point 2", "Point 3", "Call to action"],
+            "hashtags": tags,
+            "content_outline": ["Hook", "Point 1", "Point 2", "Point 3", "Call to action"],
             "visual_direction": "Bold text overlay on high-contrast imagery.",
             "call_to_action": "Save this and share it with a friend who'd love it.",
-            "why_it_should_work": "Mirrors the format and timing of top performers (mock).",
+        }
+        return {
+            "ideas": [
+                idea("Myth busting", stats.get("best_format") or "carousel"),
+                idea("A day in the field", "reel"),
+                idea("Single striking find", "image"),
+            ],
             "posting_notes": "Reply to every comment in the first hour.",
         }
 

@@ -21,7 +21,8 @@ def test_full_run_with_mocks(tmp_path):
     assert report["plan"]["hashtags"][0] == "ancientrome"
     assert report["stats"]["windows"]["60"]["post_count"] > 100
     assert report["stats"]["timing"] is not None
-    assert report["draft"]["caption"]
+    assert len(report["ideas"]) == 3 and all(i["caption"] for i in report["ideas"])
+    assert [t["name"] for t in report["themes"]["themes"]] == ["Behind the scenes"]
     assert log[-1] == "Done"
     assert store.list_reports()[0]["topic"] == "Ancient Rome"
     assert store.get_report(report["id"])["topic"] == "Ancient Rome"

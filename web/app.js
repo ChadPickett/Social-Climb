@@ -50,10 +50,10 @@ function stat(label, value, sub) {
 
 function renderReport(r) {
   const s = r.stats;
-  const d = r.draft;
   const t = s.timing;
-  const tags = d.hashtags.map((h) => "#" + h).join(" ");
-  const fullCaption = `${d.caption}\n\n${tags}`;
+  // Reports made before multi-idea support stored a single "draft".
+  const ideas = r.ideas || (r.draft ? [{ ...r.draft, title: "Draft", based_on: r.draft.why_it_should_work }] : []);
+  const postingNotes = r.posting_notes ?? r.draft?.posting_notes;
   const primary = s.windows[String(s.primary_window_days)];
 
   const goalRow = (name, g) => g ? stat(name, fmt(g.target), `stretch ${fmt(g.stretch)} · typical ${fmt(g.baseline)}`) : null;
@@ -71,25 +71,43 @@ function renderReport(r) {
     : momentum <= 0.9 ? `Topic is cooling: last 7 days are ${Math.round((1 - momentum) * 100)}% below the 60-day norm.`
     : "Topic performance is steady versus the 60-day norm.";
 
-  const copyBtn = el("button", { class: "small", type: "button", onclick: async (e) => {
-    try { await navigator.clipboard.writeText(fullCaption); e.target.textContent = "Copied!"; }
-    catch { e.target.textContent = "Copy failed"; }
-  } }, "Copy caption");
-
-  const root = $("report");
-  root.replaceChildren(...[
-    el("section", { class: "card" },
-      el("h2", {}, `Your draft: ${r.topic}`),
-      el("p", { class: "muted" }, `Format: ${d.format}  ·  source: ${r.data_source}  ·  ${new Date(r.generated_at).toLocaleString()}`),
-      el("h3", {}, "Hook"), el("p", {}, d.hook),
+  const ideaCard = (d, i) => {
+    const fullCaption = `${d.caption}\n\n${(d.hashtags || []).map((h) => "#" + h).join(" ")}`;
+    const copyBtn = el("button", { class: "small", type: "button", onclick: async (e) => {
+      try { await navigator.clipboard.writeText(fullCaption); e.target.textContent = "Copied!"; }
+      catch { e.target.textContent = "Copy failed"; }
+    } }, "Copy caption");
+    const section = (title, body) => body ? [el("h3", {}, title), el("p", {}, body)] : [];
+    return el("details", { class: "card idea", ...(i === 0 ? { open: "" } : {}) },
+      el("summary", {}, el("span", { class: "idea-num" }, `Idea ${i + 1}`), ` ${d.title || ""}`,
+        el("span", { class: "muted" }, ` · ${d.format || ""}`)),
+      ...section("Why this idea", d.based_on),
+      ...section("What you need", d.what_you_need),
+      ...section("Hook", d.hook),
       el("h3", {}, "Caption"), el("pre", { class: "caption" }, fullCaption),
       el("div", { class: "row end" }, copyBtn),
       el("h3", {}, "Content outline"), el("ol", {}, (d.content_outline || []).map((x) => el("li", {}, x))),
-      el("h3", {}, "Visual direction"), el("p", {}, d.visual_direction),
-      el("h3", {}, "Call to action"), el("p", {}, d.call_to_action),
-      el("h3", {}, "Why it should work"), el("p", {}, d.why_it_should_work),
-      el("h3", {}, "After you post"), el("p", {}, d.posting_notes)),
+      ...section("Visual direction", d.visual_direction),
+      ...section("Call to action", d.call_to_action));
+  };
 
+  const th = r.themes;
+  const themesCard = th && (th.themes?.length || th.hook_styles?.length) ? el("section", { class: "card" },
+    el("h2", {}, "What's working across accounts"),
+    el("p", { class: "muted" }, "Patterns used by at least two different accounts. One-off styles are left out on purpose."),
+    el("ul", {}, (th.themes || []).map((x) => el("li", {}, el("b", {}, x.name), ` (${x.accounts} accounts): ${x.description}`))),
+    th.hook_styles?.length ? [el("h3", {}, "Hook styles"), el("ul", {}, th.hook_styles.map((x) => el("li", {}, x)))] : null,
+    th.avoid?.length ? [el("h3", {}, "Overdone / avoid"), el("ul", {}, th.avoid.map((x) => el("li", {}, x)))] : null)
+    : null;
+
+  const root = $("report");
+  root.replaceChildren(...[
+    el("div", { class: "ideas-head" },
+      el("h2", {}, `Post ideas: ${r.topic}`),
+      el("p", { class: "muted" }, `${ideas.length} different ideas. Pick the one that fits you best. Source: ${r.data_source} · ${new Date(r.generated_at).toLocaleString()}`),
+      r.about ? el("p", { class: "muted" }, `Built around: ${r.about}`) : null),
+    ...ideas.map(ideaCard),
+    postingNotes ? el("section", { class: "card" }, el("h2", {}, "After you post"), el("p", {}, postingNotes)) : null,
     el("section", { class: "card" },
       el("h2", {}, "When to post"),
       t ? el("div", { class: "stats" },
@@ -110,13 +128,15 @@ function renderReport(r) {
       el("h2", {}, "Performance by window"),
       el("div", { class: "table-wrap" }, windowTable),
       el("h3", {}, "Hashtags used by top performers"),
-      el("div", { class: "chips" }, (primary.top_hashtags || []).map((h) => el("span", { class: "chip" }, `#${h.tag} · ${h.count}`))),
+      el("div", { class: "chips" }, (primary.top_hashtags || []).map((h) => el("span", { class: "chip", title: "number of accounts using it" }, `#${h.tag} · ${h.accounts ?? h.count}`))),
       el("h3", {}, "Searched"),
       el("div", { class: "chips" }, r.plan.hashtags.map((h) => el("span", { class: "chip" }, "#" + h))),
       el("p", { class: "muted" }, r.plan.rationale)),
 
+    themesCard,
     el("section", { class: "card" },
       el("h2", {}, "Top posts"),
+      el("p", { class: "muted" }, "One post per account, for reference. The ideas above are not based on any single one."),
       (primary.top_posts || []).map((p) => el("div", { class: "example" },
         el("a", { href: p.url, target: "_blank", rel: "noopener" }, `${p.owner ? "@" + p.owner : "Post"} · ${p.format}`),
         ` · ${fmt(p.likes)} likes · ${fmt(p.comments)} comments${p.views ? ` · ${fmt(p.views)} views` : ""}`,
@@ -176,8 +196,13 @@ async function loadMode() {
   } catch { /* shown by history load */ }
 }
 
+// Remember "about you" between visits; it rarely changes.
+const aboutKey = "socialClimbAbout";
+try { $("about").value = localStorage.getItem(aboutKey) || ""; } catch { /* private mode */ }
+
 $("analyze-form").addEventListener("submit", async (e) => {
   e.preventDefault();
+  try { localStorage.setItem(aboutKey, $("about").value); } catch { /* private mode */ }
   showError("");
   $("go").disabled = true;
   $("log").replaceChildren();
@@ -185,7 +210,11 @@ $("analyze-form").addEventListener("submit", async (e) => {
   try {
     const { job_id } = await api("/api/analyze", {
       method: "POST",
-      body: JSON.stringify({ topic: $("topic").value, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+      body: JSON.stringify({
+        topic: $("topic").value,
+        about: $("about").value,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
     });
     renderReport(await poll(job_id));
     loadHistory();

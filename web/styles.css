@@ -22,7 +22,7 @@ main { max-width: 860px; margin: 0 auto; padding: 0 16px 40px; display: grid; ga
 main > * { min-width: 0; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
 .row { display: flex; gap: 8px; } .row.end { justify-content: flex-end; margin-top: 12px; }
-input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+input, textarea { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
   background: var(--bg); color: var(--text); font: inherit; width: 100%; }
 label { display: block; font-weight: 600; margin-bottom: 8px; }
 button { padding: 10px 16px; border-radius: 10px; border: 0; background: var(--accent);
@@ -65,3 +65,9 @@ details input { margin-bottom: 12px; }
 .phone { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
 .phone img { background: #fff; border-radius: 10px; flex: none; }
 .phone div { flex: 1; min-width: 200px; } .phone p { margin: 0 0 8px; }
+label.sub { margin-top: 14px; }
+textarea { resize: vertical; }
+.ideas-head { padding: 4px 4px 0; } .ideas-head h2 { margin: 0; } .ideas-head p { margin: 4px 0 0; }
+.idea > summary { font-size: 1.05rem; font-weight: 700; margin: 0; list-style-position: outside; }
+.idea[open] > summary { margin-bottom: 6px; }
+.idea-num { color: var(--accent); }

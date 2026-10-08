@@ -23,6 +23,7 @@ LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost"}
 class AnalyzeRequest(BaseModel):
     topic: str = Field(min_length=2, max_length=120)
     timezone: str = "UTC"
+    about: str = Field(default="", max_length=2000)
 
 
 def is_local(request: Request) -> bool:
@@ -99,6 +100,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 build_llm(settings),
                 store,
                 settings.max_hashtags,
+                req.about,
                 progress,
             )
 
