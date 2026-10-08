@@ -1,0 +1,9 @@
+{
+  "name": "Social Climb",
+  "short_name": "Social Climb",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121119",
+  "theme_color": "#7c3aed",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

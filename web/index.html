@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#7c3aed">
+  <title>Social Climb</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Social Climb</h1>
+    <button id="settings-btn" class="ghost" aria-label="Settings">⚙</button>
+  </header>
+  <main>
+    <form id="analyze-form" class="card">
+      <label for="topic">What do you want to post about?</label>
+      <div class="row">
+        <input id="topic" placeholder="e.g. archaeology" required minlength="2" maxlength="120" autocomplete="off">
+        <button id="go" type="submit">Analyze</button>
+      </div>
+      <p id="mode" class="muted"></p>
+    </form>
+
+    <section id="progress" class="card hidden">
+      <h2>Working…</h2>
+      <ul id="log"></ul>
+    </section>
+
+    <section id="error" class="card error hidden"></section>
+    <section id="report" class="hidden"></section>
+
+    <section class="card">
+      <h2>Past reports</h2>
+      <ul id="history" class="history"></ul>
+    </section>
+  </main>
+
+  <dialog id="settings">
+    <form method="dialog">
+      <h2>Settings</h2>
+      <label for="token">App token (only if the server sets APP_TOKEN)</label>
+      <input id="token" type="password" autocomplete="off">
+      <div class="row end"><button value="save">Save</button></div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
