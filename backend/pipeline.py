@@ -48,7 +48,8 @@ def run_analysis(
 
     posts = store.load_posts(plan["hashtags"], since, provider.name)
     if not posts:
-        raise AnalysisError("No posts found for any hashtag. " + " ".join(warnings))
+        reasons = " ".join(dict.fromkeys(warnings))  # same error per hashtag -> say it once
+        raise AnalysisError(f"Couldn't collect any posts. {reasons}".strip())
 
     progress(f"Analyzing {len(posts)} posts")
     stats = analyze(posts, now, tz_name)

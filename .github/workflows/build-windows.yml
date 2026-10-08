@@ -1,0 +1,57 @@
+name: Build Windows app
+
+# Every push to main or the development branch builds SocialClimb.exe and
+# publishes it as the latest GitHub Release, so the download link never changes:
+# https://github.com/chadpickett/social-climb/releases/latest/download/SocialClimb.exe
+on:
+  push:
+    branches: [main, ccr-b33af561-8e0d9y]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Build SocialClimb.exe
+        shell: bash
+        run: ./build.sh
+
+      - name: Smoke-test the exe
+        shell: pwsh
+        run: |
+          $env:DATA_DIR = "$env:RUNNER_TEMP\sc-data"
+          $p = Start-Process dist\SocialClimb.exe -ArgumentList "--port","8123","--no-browser" -PassThru
+          $ok = $false
+          foreach ($i in 1..30) {
+            Start-Sleep -Seconds 2
+            try { Invoke-RestMethod http://127.0.0.1:8123/api/config | Out-Null; $ok = $true; break } catch {}
+          }
+          Stop-Process -Id $p.Id -Force
+          if (-not $ok) { throw "SocialClimb.exe did not start" }
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Social Climb (build ${{ github.run_number }})
+          target_commitish: ${{ github.sha }}
+          make_latest: "true"
+          body: |
+            Download **SocialClimb.exe** below and double-click it.
+            If Windows shows "Windows protected your PC", click **More info → Run anyway**.
+          files: dist/SocialClimb.exe

@@ -50,7 +50,7 @@ class ApifyProvider(DataProvider):
 
     def __init__(self, token: str, actor: str, results_per_tag: int, timeout: float = 300):
         if not token:
-            raise ProviderError("APIFY_TOKEN is not set")
+            raise ProviderError("No Apify key yet. Add it in Settings.")
         self.token = token
         self.actor = actor
         self.results_per_tag = results_per_tag
@@ -70,7 +70,12 @@ class ApifyProvider(DataProvider):
             )
             resp.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            raise ProviderError(f"Apify returned {exc.response.status_code} for #{hashtag}") from exc
+            code = exc.response.status_code
+            if code in (401, 403):
+                raise ProviderError("Apify didn't accept your key. Check the Apify key in Settings.") from exc
+            if code == 402:
+                raise ProviderError("Your Apify account is out of credit. Top it up at apify.com.") from exc
+            raise ProviderError(f"Apify returned error {code} for #{hashtag}") from exc
         except httpx.HTTPError as exc:
             raise ProviderError(f"Apify request failed for #{hashtag}: {exc}") from exc
         posts = (to_post(item) for item in resp.json())

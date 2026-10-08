@@ -24,6 +24,11 @@
       <p id="mode" class="muted"></p>
     </form>
 
+    <section id="setup" class="card notice hidden">
+      <span id="setup-text"></span>
+      <div class="row end"><button id="setup-btn" type="button">Open Settings</button></div>
+    </section>
+
     <section id="progress" class="card hidden">
       <h2>Working…</h2>
       <ul id="log"></ul>
@@ -32,6 +37,19 @@
     <section id="error" class="card error hidden"></section>
     <section id="report" class="hidden"></section>
 
+    <section id="phone" class="card hidden">
+      <h2>Use it on your phone</h2>
+      <div class="phone">
+        <img id="qr" alt="QR code for opening Social Climb on your phone" width="180" height="180">
+        <div>
+          <p>Connect your phone to the same Wi-Fi as this computer, then scan this code with the phone's camera.</p>
+          <p>Once it opens, tap Chrome's <b>⋮</b> menu and choose <b>Add to Home screen</b> to get an app icon.</p>
+          <p class="muted">Can't connect? When Windows asks whether to allow Social Climb on the network, click
+            <b>Allow</b>. The app only works on your phone while it's running on this computer.</p>
+        </div>
+      </div>
+    </section>
+
     <section class="card">
       <h2>Past reports</h2>
       <ul id="history" class="history"></ul>
@@ -39,11 +57,43 @@
   </main>
 
   <dialog id="settings">
-    <form method="dialog">
+    <form id="settings-form" method="dialog">
       <h2>Settings</h2>
-      <label for="token">App token (only if the server sets APP_TOKEN)</label>
-      <input id="token" type="password" autocomplete="off">
-      <div class="row end"><button value="save">Save</button></div>
+      <div id="host-settings">
+        <p class="muted">Paste your two keys below. They stay on this computer. Leave a box empty to keep the key you saved before.</p>
+
+        <label for="apify_token">1. Apify key: collects the Instagram posts</label>
+        <input id="apify_token" type="password" autocomplete="off">
+        <p class="hint" id="apify_token_status"></p>
+        <p class="hint">Sign up free at <a href="https://console.apify.com/sign-up" target="_blank" rel="noopener">apify.com</a>,
+          then go to <b>Settings → API &amp; Integrations</b> and copy your API token.</p>
+
+        <label for="llm_api_key">2. DeepSeek key: the AI that writes your post</label>
+        <input id="llm_api_key" type="password" autocomplete="off">
+        <p class="hint" id="llm_api_key_status"></p>
+        <p class="hint">Sign up at <a href="https://platform.deepseek.com" target="_blank" rel="noopener">platform.deepseek.com</a>,
+          add a few dollars of credit under <b>Top up</b>, then create a key under <b>API keys</b>.</p>
+
+        <details>
+          <summary>Advanced</summary>
+          <label for="apify_results_per_tag">Posts collected per hashtag (more = better analysis, higher Apify cost)</label>
+          <input id="apify_results_per_tag" type="number" min="5" max="1000">
+          <label for="max_hashtags">Hashtags searched per analysis</label>
+          <input id="max_hashtags" type="number" min="1" max="30">
+          <label for="llm_base_url">AI service address (any OpenAI-compatible API)</label>
+          <input id="llm_base_url" autocomplete="off">
+          <label for="llm_model">AI model</label>
+          <input id="llm_model" autocomplete="off">
+        </details>
+      </div>
+      <div id="guest-settings">
+        <p class="muted">Keys and other settings can only be changed on the computer running Social Climb.</p>
+      </div>
+      <p id="settings-error" class="error-text"></p>
+      <div class="row end">
+        <button value="cancel" class="secondary" formnovalidate>Cancel</button>
+        <button id="settings-save" value="save">Save</button>
+      </div>
     </form>
   </dialog>
 

@@ -12,29 +12,41 @@ Pick a topic, hit **Analyze**, and get:
 5. **When to post and what to aim for.** Your next best posting slot, plus a target (top 25%) and a stretch
    goal (top 10%) for each metric.
 
-It runs as one small Python server and a web app. On **PC** you open it in the browser. On **Android**
-you open the same URL on the same Wi-Fi network and use *Add to Home screen* so it works like an app.
-Reports are saved, so you can review past analyses on either device.
+It's one Windows program that opens in your browser, and your Android phone connects to it over your
+Wi-Fi with a QR code. Reports are saved, so you can review past analyses on either device.
 
-## Quick start (demo mode, no accounts needed)
+## Install (Windows)
+
+1. Download **[SocialClimb.exe](https://github.com/chadpickett/social-climb/releases/latest/download/SocialClimb.exe)**.
+2. Double-click it. If Windows says *"Windows protected your PC"*, click **More info → Run anyway**.
+   (Windows shows this for any app from a small developer that hasn't paid for a signing certificate.)
+   If Windows asks whether to allow it on networks, click **Allow** so your phone can connect.
+3. The app opens in your browser. Type a topic and hit **Analyze** to try it with demo data.
+4. To use real Instagram data, click **Open Settings** in the app and paste your two keys.
+   The Settings screen links to where you get each one.
+5. **Phone:** scan the QR code shown in the app with your phone's camera (same Wi-Fi as the PC),
+   then use Chrome's ⋮ menu → **Add to Home screen**.
+
+A black window stays open while the app runs. Close it to stop the app. Your keys, reports and
+collected posts are saved in `%LOCALAPPDATA%\SocialClimb`.
+
+## For developers
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env               # Windows: copy .env.example .env
-python run.py
+python run.py            # opens the app in your browser
+python -m pytest         # tests
+./build.sh               # package into dist/SocialClimb(.exe); needs `pip install pyinstaller`
 ```
 
-Open the **PC** URL it prints. On your phone, open the **Phone** URL. If other people share your
-network, set `APP_TOKEN` in `.env` and enter that token in the app's ⚙ settings.
-
-Demo mode uses synthetic posts and a canned AI so you can try the whole flow. Switch to real data
-and a real AI by editing `.env` as described below.
+Every push to `main` or the development branch builds the Windows `.exe` on GitHub Actions and
+publishes it as the latest release. Settings can also come from environment variables or a `.env`
+file (see `.env.example`). Values saved in the app's Settings screen take priority.
 
 ## Choosing a data source (`DATA_PROVIDER`)
 
-| Option | Cost | Data you get | Risk |
+| `DATA_PROVIDER` | Cost | Data you get | Risk |
 |---|---|---|---|
 | `apify` **(recommended)** | Pay per result (roughly a few dollars per 1,000 posts; the free plan includes monthly credit) | Full 60-day history per hashtag, with likes, comments and views | Scraping runs on Apify's servers, so your own IG account is never involved |
 | `graph`: official Instagram Graph API | Free | Each hashtag's current top posts plus the last 24 hours of recent posts. Max 30 unique hashtags per 7 days. Needs a Business/Creator account linked to a Facebook Page | None, because it's within Instagram's terms. History builds up only as you keep running it |
@@ -43,14 +55,17 @@ and a real AI by editing `.env` as described below.
 Running your own scraper from your account (e.g. Instaloader) isn't included. It breaks often, and
 Instagram rate-limits and bans accounts that do it.
 
-A run with `apify` fetches up to `MAX_HASHTAGS` × `APIFY_RESULTS_PER_TAG` posts (8 × 150 by default).
-Lower either one to spend less. Check Apify's current pricing before your first real run.
+The app uses Apify automatically once its key is in Settings. Each run collects up to
+*hashtags × posts per hashtag* posts (8 × 50 by default; both adjustable under Settings → Advanced).
+Check Apify's current pricing before your first real run. The official API needs `DATA_PROVIDER=graph`
+plus `IG_GRAPH_TOKEN` and `IG_USER_ID` in `.env`.
 
 ## Choosing the AI (`LLM_*`)
 
-Any OpenAI-compatible API works. Set `LLM_PROVIDER=openai` and pick one:
+DeepSeek is the default: paste its key in Settings and you're done. Any OpenAI-compatible API works
+(change the address and model under Settings → Advanced):
 
-| Provider | `LLM_BASE_URL` | `LLM_MODEL` | Notes |
+| Provider | AI service address | AI model | Notes |
 |---|---|---|---|
 | DeepSeek (default) | `https://api.deepseek.com` | `deepseek-chat` | Paid but very cheap; a run is a few thousand tokens |
 | OpenRouter | `https://openrouter.ai/api/v1` | any listed model | One key for many models, some of them free (rate-limited) |
@@ -78,7 +93,8 @@ backend/
   agents.py        the two AI agents (search planner, post drafter)
   analysis.py      all statistics: windows, timing, goals, momentum
   llm.py           OpenAI-compatible client (+ offline mock)
-  storage.py       SQLite cache of posts and reports (data/social_climb.db)
+  storage.py       SQLite cache of posts and reports
+  config.py        settings: defaults < env/.env < saved from the Settings screen
   providers/       apify.py, graph_api.py, mock.py
 web/               installable web app (PWA)
 tests/             pytest suite: python -m pytest
@@ -89,5 +105,5 @@ tests/             pytest suite: python -m pytest
 - Enter your follower count so goals scale to your account size.
 - Scheduled background refreshes, so the history builds up even without pressing the button.
 - Look up the accounts behind top posts to measure engagement *rate*, not just raw counts.
-- Package as a native Android app (Capacitor) and Windows app (Tauri) wrapping the same web UI,
-  with the server hosted in the cloud so the phone works away from home Wi-Fi.
+- Host the server online so the phone works away from home Wi-Fi and the PC can be off.
+- A Mac build (same `build.sh`, run on a Mac runner).

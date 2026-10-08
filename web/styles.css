@@ -55,3 +55,13 @@ ol, ul { padding-left: 20px; }
 a { color: var(--accent); }
 dialog { border: 1px solid var(--border); border-radius: 14px; background: var(--card); color: var(--text);
   width: min(420px, calc(100% - 32px)); }
+button.secondary { background: var(--chip); color: var(--text); }
+.notice { border-color: var(--accent); }
+.hint { color: var(--muted); font-size: .85rem; margin: 6px 0 14px; }
+.error-text { color: var(--error); font-size: .9rem; min-height: 1em; }
+dialog label { margin-top: 4px; }
+details { margin: 4px 0 8px; } summary { cursor: pointer; font-weight: 600; margin-bottom: 10px; }
+details input { margin-bottom: 12px; }
+.phone { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.phone img { background: #fff; border-radius: 10px; flex: none; }
+.phone div { flex: 1; min-width: 200px; } .phone p { margin: 0 0 8px; }

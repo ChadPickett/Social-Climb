@@ -42,7 +42,7 @@ class LLM(ABC):
 class OpenAICompatibleLLM(LLM):
     def __init__(self, base_url: str, api_key: str, model: str, timeout: float = 120):
         if not api_key:
-            raise LLMError("LLM_API_KEY is not set")
+            raise LLMError("No AI key yet. Add your DeepSeek key in Settings.")
         self.url = base_url.rstrip("/") + "/chat/completions"
         self.headers = {"Authorization": f"Bearer {api_key}"}
         self.model = model
@@ -60,6 +60,11 @@ class OpenAICompatibleLLM(LLM):
             resp.raise_for_status()
             content = resp.json()["choices"][0]["message"]["content"]
         except httpx.HTTPStatusError as exc:
+            code = exc.response.status_code
+            if code in (401, 403):
+                raise LLMError("The AI service didn't accept your key. Check the DeepSeek key in Settings.") from exc
+            if code == 402:
+                raise LLMError("Your AI account is out of credit. Top it up (for DeepSeek: platform.deepseek.com).") from exc
             raise LLMError(f"LLM API returned {exc.response.status_code}: {exc.response.text[:200]}") from exc
         except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:
             raise LLMError(f"LLM request failed ({task}): {exc}") from exc
@@ -95,6 +100,6 @@ class MockLLM(LLM):
 
 
 def build_llm(settings: Settings) -> LLM:
-    if settings.llm_provider == "mock":
+    if settings.active_llm_provider == "mock":
         return MockLLM()
     return OpenAICompatibleLLM(settings.llm_base_url, settings.llm_api_key, settings.llm_model)

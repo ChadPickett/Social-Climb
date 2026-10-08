@@ -13,10 +13,14 @@ async function api(path, options = {}) {
     headers: { "Content-Type": "application/json", "X-App-Token": getToken(), ...(options.headers || {}) },
   });
   if (res.status === 401) {
-    $("settings").showModal();
-    throw new Error("This server needs an app token. Enter it in Settings.");
+    throw new Error("This device isn't connected yet. On your computer, open Social Climb and scan its QR code with this phone.");
   }
-  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const text = await res.text();
+    let detail = text;
+    try { detail = JSON.parse(text).detail ?? text; } catch { /* not JSON */ }
+    throw new Error(typeof detail === "string" ? detail : `Request failed (${res.status})`);
+  }
   return res.json();
 }
 
@@ -150,11 +154,25 @@ async function loadHistory() {
   } catch (e) { showError(e.message); }
 }
 
+let isHost = false;
+
 async function loadMode() {
   try {
     const c = await api("/api/config");
-    const demo = c.data_provider === "mock" || c.llm_provider === "mock";
-    $("mode").textContent = `Data: ${c.data_provider} · AI: ${c.llm_model}` + (demo ? " · demo mode (synthetic data)" : "");
+    isHost = c.is_host;
+    const fakeData = c.data_provider === "mock";
+    const fakeAi = c.llm_provider === "mock";
+    $("mode").textContent = [
+      fakeData ? "Demo posts (made up)" : `Real posts via ${c.data_provider}`,
+      fakeAi ? "placeholder AI" : `AI: ${c.llm_model}`,
+    ].join(" · ");
+    $("setup-text").textContent =
+      fakeData && fakeAi ? "You're in demo mode: results use made-up posts and a placeholder AI so you can try the app. To analyze real Instagram posts, add your two keys in Settings."
+      : fakeData ? "Almost there: add your Apify key in Settings so the app can collect real Instagram posts."
+      : "Almost there: add your DeepSeek key in Settings so the AI can write your post.";
+    $("setup").classList.toggle("hidden", !((fakeData || fakeAi) && isHost));
+    $("phone").classList.toggle("hidden", !isHost);
+    if (isHost) $("qr").src = `/api/phone/qr.svg?t=${Date.now()}`;
   } catch { /* shown by history load */ }
 }
 
@@ -179,17 +197,45 @@ $("analyze-form").addEventListener("submit", async (e) => {
   }
 });
 
-$("settings-btn").addEventListener("click", () => {
-  $("token").value = getToken();
-  $("settings").returnValue = "";
+const SETTING_FIELDS = ["apify_token", "llm_api_key", "apify_results_per_tag", "max_hashtags", "llm_base_url", "llm_model"];
+
+async function openSettings() {
+  $("settings-error").textContent = "";
+  $("host-settings").classList.toggle("hidden", !isHost);
+  $("guest-settings").classList.toggle("hidden", isHost);
+  $("settings-save").classList.toggle("hidden", !isHost);
+  if (isHost) {
+    try {
+      const s = await api("/api/settings");
+      for (const f of SETTING_FIELDS) $(f).value = f.endsWith("key") || f.endsWith("token") ? "" : s[f];
+      $("apify_token_status").textContent = s.apify_token_set ? "✓ Saved" : "Not set yet";
+      $("llm_api_key_status").textContent = s.llm_api_key_set ? "✓ Saved" : "Not set yet";
+    } catch (e) { $("settings-error").textContent = e.message; }
+  }
   $("settings").showModal();
-});
-$("settings").addEventListener("close", () => {
-  if ($("settings").returnValue !== "save") return;
-  try { localStorage.setItem(tokenKey, $("token").value.trim()); } catch { /* private mode */ }
-  loadMode(); loadHistory();
+}
+
+$("settings-btn").addEventListener("click", openSettings);
+$("setup-btn").addEventListener("click", openSettings);
+$("settings-form").addEventListener("submit", async (e) => {
+  if (e.submitter?.value !== "save") return;  // Cancel just closes
+  e.preventDefault();
+  const changes = Object.fromEntries(SETTING_FIELDS.map((f) => [f, $(f).value.trim()]));
+  try {
+    await api("/api/settings", { method: "PUT", body: JSON.stringify(changes) });
+    $("settings").close();
+    loadMode();
+  } catch (err) {
+    $("settings-error").textContent = err.message;
+  }
 });
 
+// A phone opened from the QR code carries its access token in the URL: keep it, then hide it.
+const urlToken = new URLSearchParams(location.search).get("token");
+if (urlToken) {
+  try { localStorage.setItem(tokenKey, urlToken); } catch { /* private mode */ }
+  history.replaceState(null, "", location.pathname);
+}
+
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
-loadMode();
-loadHistory();
+loadMode().then(loadHistory);
