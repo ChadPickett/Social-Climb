@@ -31,6 +31,9 @@ Wi-Fi with a QR code. Reports are saved, so you can review past analyses on eith
 5. **Phone:** scan the QR code shown in the app with your phone's camera (same Wi-Fi as the PC),
    then use Chrome's ⋮ menu → **Add to Home screen**.
 
+**Updates:** when a new version is out, the app shows an **Update now** button. It downloads,
+verifies and installs the new version and restarts by itself. Your keys and reports are kept.
+
 A black window stays open while the app runs. Close it to stop the app. Your keys, reports and
 collected posts are saved in `%LOCALAPPDATA%\SocialClimb`.
 

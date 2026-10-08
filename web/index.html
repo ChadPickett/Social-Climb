@@ -11,10 +11,17 @@
 </head>
 <body>
   <header>
-    <h1>Social Climb</h1>
+    <h1>Social Climb <span id="build" class="build"></span></h1>
     <button id="settings-btn" class="ghost" aria-label="Settings">⚙</button>
   </header>
   <main>
+    <section id="update" class="card notice hidden">
+      <strong id="update-title">A new version is available.</strong>
+      <p id="update-notes" class="notes"></p>
+      <p class="muted">Your keys, reports and phone connection are kept.</p>
+      <p id="update-error" class="error-text"></p>
+      <div class="row end"><button id="update-btn" type="button">Update now</button></div>
+    </section>
     <form id="analyze-form" class="card">
       <label for="topic">What do you want to post about?</label>
       <div class="row">

@@ -193,6 +193,8 @@ async function loadMode() {
     $("setup").classList.toggle("hidden", !((fakeData || fakeAi) && isHost));
     $("phone").classList.toggle("hidden", !isHost);
     if (isHost) $("qr").src = `/api/phone/qr.svg?t=${Date.now()}`;
+    if (c.build) $("build").textContent = `build ${c.build}`;
+    if (isHost) checkForUpdate(c);
   } catch { /* shown by history load */ }
 }
 
@@ -225,6 +227,42 @@ $("analyze-form").addEventListener("submit", async (e) => {
     $("progress").classList.add("hidden");
   }
 });
+
+async function checkForUpdate(config) {
+  try {
+    const u = await api("/api/update");
+    if (!u.available) return;
+    $("update-title").textContent = `A new version is available (build ${u.latest}).`;
+    $("update-notes").textContent = u.notes ? `What's new:\n${u.notes}` : "";
+    $("update").classList.remove("hidden");
+    $("update-btn").onclick = () => runUpdate(config);
+  } catch { /* offline or rate-limited: try again next time */ }
+}
+
+async function runUpdate(before) {
+  const btn = $("update-btn");
+  btn.disabled = true;
+  $("update-error").textContent = "";
+  btn.textContent = "Downloading…";
+  try {
+    await api("/api/update", { method: "POST" });
+  } catch (e) {
+    $("update-error").textContent = e.message;
+    btn.disabled = false;
+    btn.textContent = "Update now";
+    return;
+  }
+  btn.textContent = "Restarting…";
+  // Wait for the new version to answer, then reload the page onto it.
+  for (let i = 0; i < 60; i++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      const c = await api("/api/config");
+      if (c.started_at !== before.started_at) { location.reload(); return; }
+    } catch { /* still restarting */ }
+  }
+  $("update-error").textContent = "The update was installed, but the app didn't come back. Open SocialClimb.exe again.";
+}
 
 const SETTING_FIELDS = ["apify_token", "llm_api_key", "apify_results_per_tag", "max_hashtags", "llm_base_url", "llm_model"];
 

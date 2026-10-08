@@ -29,7 +29,10 @@ jobs:
 
       - name: Build SocialClimb.exe
         shell: bash
-        run: ./build.sh
+        run: |
+          # The build number lets the app tell whether a newer release exists.
+          echo "BUILD = ${{ github.run_number }}" > backend/_build.py
+          ./build.sh
 
       - name: Smoke-test the exe
         shell: pwsh
@@ -44,6 +47,56 @@ jobs:
           Stop-Process -Id $p.Id -Force
           if (-not $ok) { throw "SocialClimb.exe did not start" }
 
+      - name: Rehearse an in-app update
+        # Installs the exe, saves a key, serves a fake newer release locally,
+        # triggers the update through the app's API, and checks that the app
+        # restarts on the new file with the key intact and the old file removed.
+        shell: pwsh
+        run: |
+          $install = "$env:RUNNER_TEMP\install"; $srv = "$env:RUNNER_TEMP\fake-release"
+          New-Item -ItemType Directory -Force $install, $srv | Out-Null
+          Copy-Item dist\SocialClimb.exe "$install\SocialClimb.exe"
+          Copy-Item dist\SocialClimb.exe "$srv\SocialClimb.exe"
+          $sha = (Get-FileHash dist\SocialClimb.exe -Algorithm SHA256).Hash.ToLower()
+          @{ tag_name = "build-999999"; body = "Rehearsal"; assets = @(@{
+              name = "SocialClimb.exe"; digest = "sha256:$sha"
+              browser_download_url = "http://127.0.0.1:8200/SocialClimb.exe" }) } |
+            ConvertTo-Json -Depth 5 | Set-Content "$srv\latest.json"
+          $server = Start-Process python -ArgumentList "-m","http.server","8200","--directory",$srv -PassThru
+
+          $env:DATA_DIR = "$env:RUNNER_TEMP\update-data"
+          $env:SOCIALCLIMB_UPDATE_API = "http://127.0.0.1:8200/latest.json"
+          $base = "http://127.0.0.1:8124"
+          Start-Process "$install\SocialClimb.exe" -ArgumentList "--port","8124","--no-browser" | Out-Null
+
+          function Wait-Config { foreach ($i in 1..40) {
+              try { return Invoke-RestMethod "$base/api/config" } catch { Start-Sleep 2 } }
+            throw "app did not respond" }
+          $before = Wait-Config
+          Invoke-RestMethod "$base/api/settings" -Method Put -ContentType "application/json" -Body '{"apify_token":"kept-key"}' | Out-Null
+          $status = Invoke-RestMethod "$base/api/update?refresh=true"
+          if (-not $status.available) { throw "update not offered: $($status | ConvertTo-Json)" }
+          Invoke-RestMethod "$base/api/update" -Method Post | Out-Null
+
+          $after = $null
+          foreach ($i in 1..40) {
+            Start-Sleep 2
+            try { $c = Invoke-RestMethod "$base/api/config"; if ($c.started_at -ne $before.started_at) { $after = $c; break } } catch {}
+          }
+          if (-not $after) { throw "app did not come back after updating" }
+          if (-not (Invoke-RestMethod "$base/api/settings").apify_token_set) { throw "saved key was lost" }
+          foreach ($i in 1..20) { if (-not (Test-Path "$install\SocialClimb.exe.old")) { break }; Start-Sleep 2 }
+          if (Test-Path "$install\SocialClimb.exe.old") { throw "old exe was not cleaned up" }
+          Get-ChildItem $install | Format-Table Name, Length
+          Get-Process SocialClimb -ErrorAction SilentlyContinue | Stop-Process -Force
+          Stop-Process -Id $server.Id -Force
+          Write-Host "In-app update rehearsal passed"
+
+      - name: Release notes
+        shell: bash
+        # The commit's title line is shown in the app's "What's new" update banner.
+        run: git log -1 --format=%s > notes.md
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
@@ -51,7 +104,5 @@ jobs:
           name: Social Climb (build ${{ github.run_number }})
           target_commitish: ${{ github.sha }}
           make_latest: "true"
-          body: |
-            Download **SocialClimb.exe** below and double-click it.
-            If Windows shows "Windows protected your PC", click **More info → Run anyway**.
+          body_path: notes.md
           files: dist/SocialClimb.exe

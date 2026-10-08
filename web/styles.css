@@ -71,3 +71,5 @@ textarea { resize: vertical; }
 .idea > summary { font-size: 1.05rem; font-weight: 700; margin: 0; list-style-position: outside; }
 .idea[open] > summary { margin-bottom: 6px; }
 .idea-num { color: var(--accent); }
+.build { color: var(--muted); font-size: .75rem; font-weight: 500; }
+.notes { white-space: pre-wrap; margin: 8px 0; font-size: .9rem; }

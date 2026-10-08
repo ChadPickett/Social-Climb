@@ -7,12 +7,14 @@ import argparse
 import socket
 import sys
 import threading
+import time
 import webbrowser
 
 import uvicorn
 
 from backend.main import create_app
 from backend.network import lan_ip
+from backend.updater import BUILD, CAN_SELF_UPDATE, cleanup_old_exe
 
 
 def port_in_use(port: int) -> bool:
@@ -25,8 +27,20 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--local-only", action="store_true", help="don't accept connections from your phone")
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--after-update", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     url = f"http://localhost:{args.port}"
+
+    if args.after_update:
+        # Started by the previous version: wait for it to release the port. The
+        # browser tab that asked for the update reloads itself.
+        for _ in range(40):
+            if not port_in_use(args.port):
+                break
+            time.sleep(0.5)
+        args.no_browser = True
+    if CAN_SELF_UPDATE:
+        cleanup_old_exe()
 
     if port_in_use(args.port):
         # Most likely Social Climb is already running: just show it.
@@ -35,7 +49,7 @@ def main() -> None:
         return
 
     app = create_app()
-    print("\n  Social Climb is running. Keep this window open while you use it;")
+    print(f"\n  Social Climb (build {BUILD}) is running. Keep this window open while you use it;")
     print("  close it to stop the app.\n")
     print(f"  On this computer: {url}")
     if not args.local_only:

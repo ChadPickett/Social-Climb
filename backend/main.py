@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import secrets
+import time
 from urllib.parse import quote
 
 import segno
@@ -16,6 +17,7 @@ from .network import lan_ip
 from .pipeline import JobManager, run_analysis
 from .providers import build_provider
 from .storage import Store
+from .updater import Updater, UpdateError
 
 LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost"}
 
@@ -30,10 +32,12 @@ def is_local(request: Request) -> bool:
     return request.client is not None and request.client.host in LOCAL_HOSTS
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, updater: Updater | None = None) -> FastAPI:
     state = {"settings": settings or Settings.from_env()}
     store = Store(state["settings"].db_path)
     jobs = JobManager()
+    updater = updater or Updater()
+    started_at = time.time()
     app = FastAPI(title="Social Climb")
 
     def require_token(request: Request, x_app_token: str = Header(default="")) -> None:
@@ -61,7 +65,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "llm_provider": s.active_llm_provider,
             "llm_model": s.llm_model if s.active_llm_provider != "mock" else "mock",
             "is_host": is_local(request),
+            "build": updater.current,
+            "started_at": started_at,
         }
+
+    @app.get("/api/update", dependencies=[Depends(require_local)])
+    def update_status(refresh: bool = False):
+        return updater.status(refresh)
+
+    @app.post("/api/update", dependencies=[Depends(require_local)])
+    def update_now(request: Request):
+        if jobs.running():
+            raise HTTPException(409, "An analysis is still running. Update once it finishes.")
+        try:
+            build = updater.apply(request.url.port or 8000)
+        except UpdateError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"updating_to": build}
 
     @app.get("/api/settings", dependencies=[Depends(require_local)])
     def get_settings():

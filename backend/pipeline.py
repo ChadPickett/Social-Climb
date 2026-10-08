@@ -106,6 +106,10 @@ class JobManager:
         threading.Thread(target=target, daemon=True).start()
         return job_id
 
+    def running(self) -> bool:
+        with self._lock:
+            return any(j["status"] == "running" for j in self._jobs.values())
+
     def get(self, job_id: str) -> dict | None:
         with self._lock:
             job = self._jobs.get(job_id)
